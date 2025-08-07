@@ -26,33 +26,27 @@ class HSVRangeFinder:
         self.window.rowconfigure(0, weight=1)
         self.window.columnconfigure(0, weight=1)
         self.contentFrame.rowconfigure(0, weight=1)
-        self.contentFrame.columnconfigure(0, weight=1)
-        self.contentFrame.columnconfigure(1, weight=1)
-        self.contentFrame.columnconfigure(2, weight=1)
+        # Add four columns: 0 (spacer), 1 (original), 2 (result), 3 (spacer)
+        self.contentFrame.columnconfigure(0, weight=1)  # left spacer
+        self.contentFrame.columnconfigure(1, weight=3)  # original image
+        self.contentFrame.columnconfigure(2, weight=3)  # result image
+        self.contentFrame.columnconfigure(3, weight=1)  # right spacer
 
-        # Main Camera Frame
+        # Main Camera Frame (centered)
         self.mainCameraFrame = LabelFrame(self.contentFrame, text='Original Image')
-        self.mainCameraFrame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
+        self.mainCameraFrame.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
         self.mainCameraFrame.rowconfigure(0, weight=1)
         self.mainCameraFrame.columnconfigure(0, weight=1)
         self.vidLabel1 = Label(self.mainCameraFrame)
         self.vidLabel1.grid(row=0, column=0, sticky='nsew')
 
-        # Result Camera Frame
-        self.contourCameraFrame = LabelFrame(self.contentFrame, text='Filtered   Image')
-        self.contourCameraFrame.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
-        self.contourCameraFrame.rowconfigure(0, weight=1)
-        self.contourCameraFrame.columnconfigure(0, weight=1)
-        self.vidLabel2 = Label(self.contourCameraFrame)
+        # Result Camera Frame (Filtered or Binary Mask, centered)
+        self.resultCameraFrame = LabelFrame(self.contentFrame, text='Filtered Image')
+        self.resultCameraFrame.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
+        self.resultCameraFrame.rowconfigure(0, weight=1)
+        self.resultCameraFrame.columnconfigure(0, weight=1)
+        self.vidLabel2 = Label(self.resultCameraFrame)
         self.vidLabel2.grid(row=0, column=0, sticky='nsew')
-
-        # Binary Mask Frame
-        self.outCameraFrame = LabelFrame(self.contentFrame, text='Binary Mask')
-        self.outCameraFrame.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
-        self.outCameraFrame.rowconfigure(0, weight=1)
-        self.outCameraFrame.columnconfigure(0, weight=1)
-        self.vidLabel3 = Label(self.outCameraFrame)
-        self.vidLabel3.grid(row=0, column=0, sticky='nsew')
 
         # Controls Frame (sliders, buttons, results)
         self.controlsFrame = Frame(self.window)
@@ -62,6 +56,7 @@ class HSVRangeFinder:
         self.controlsFrame.columnconfigure(1, weight=1)
         self.controlsFrame.columnconfigure(2, weight=1)
         self.controlsFrame.columnconfigure(3, weight=1)
+        self.controlsFrame.columnconfigure(4, weight=1) # Added for toggle button
 
         # Load Image button
         self.loadImageBtn = Button(self.controlsFrame, text='Load Image', command=self.load_image)
@@ -178,6 +173,13 @@ class HSVRangeFinder:
         self.usEntry.insert(0, '255')
         self.uvEntry.insert(0, '255')
 
+        # Toggle button for switching between filtered and binary mask
+        self.toggleFrame = Frame(self.controlsFrame)
+        self.toggleFrame.grid(row=0, column=4, padx=5, pady=5, sticky='e')
+        self.show_binary = False
+        self.toggleBtn = Button(self.toggleFrame, text='Show Binary Mask', command=self.toggle_result_view)
+        self.toggleBtn.pack()
+
     # Method to copy the lower HSV range to clipboard
     def get_lowerRange(self):
         lowerRange = '{},{},{}'.format(self.get_lh(), self.get_ls(), self.get_lv())
@@ -278,7 +280,6 @@ class HSVRangeFinder:
             # Clear the labels if no image
             self.vidLabel1.config(image='')
             self.vidLabel2.config(image='')
-            self.vidLabel3.config(image='')
             return
         image = self.loaded_image.copy()
         # Get HSV bounds
@@ -299,8 +300,7 @@ class HSVRangeFinder:
                 w, h = default
             return (w, h)
         size1 = get_frame_size(self.mainCameraFrame)
-        size2 = get_frame_size(self.contourCameraFrame)
-        size3 = get_frame_size(self.outCameraFrame)
+        size2 = get_frame_size(self.resultCameraFrame)
         # Display original
         img1 = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img1 = Image.fromarray(img1)
@@ -308,20 +308,16 @@ class HSVRangeFinder:
         img1 = ImageTk.PhotoImage(image=img1)
         self.vidLabel1.config(image=img1)
         self.vidLabel1.image = img1
-        # Display filtered
-        img2 = cv2.cvtColor(filtered_frame, cv2.COLOR_BGR2RGB)
+        # Display filtered or binary mask based on toggle
+        if self.show_binary:
+            img2 = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+        else:
+            img2 = cv2.cvtColor(filtered_frame, cv2.COLOR_BGR2RGB)
         img2 = Image.fromarray(img2)
         img2 = img2.resize(size2, Image.Resampling.LANCZOS)
         img2 = ImageTk.PhotoImage(image=img2)
         self.vidLabel2.config(image=img2)
         self.vidLabel2.image = img2
-        # Display binary
-        img3 = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
-        img3 = Image.fromarray(img3)
-        img3 = img3.resize(size3, Image.Resampling.LANCZOS)
-        img3 = ImageTk.PhotoImage(image=img3)
-        self.vidLabel3.config(image=img3)
-        self.vidLabel3.image = img3
 
     # Periodically update the display to reflect slider changes
     def update_frame(self):
@@ -473,6 +469,16 @@ class HSVRangeFinder:
         self.window.mainloop()
         # self.window.after_cancel(self.update_frame)
         # self.cap.release()
+
+    def toggle_result_view(self):
+        self.show_binary = not self.show_binary
+        if self.show_binary:
+            self.resultCameraFrame.config(text='Binary Mask')
+            self.toggleBtn.config(text='Show Filtered Image')
+        else:
+            self.resultCameraFrame.config(text='Filtered Image')
+            self.toggleBtn.config(text='Show Binary Mask')
+        self.process_and_display_image()
 
 gui = HSVRangeFinder()
 gui.run()
