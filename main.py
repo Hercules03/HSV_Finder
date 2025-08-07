@@ -5,6 +5,8 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 import numpy as np
 import pyperclip
+import platform
+import os
 
 # Define the main class for the HSV Range Finder application
 class HSVRangeFinder:
@@ -220,16 +222,56 @@ class HSVRangeFinder:
 
     def load_image(self):
         from tkinter import filedialog
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.bmp")]
-        )
-        if file_path:
-            image = cv2.imread(file_path)
-            if image is None:
-                messagebox.showerror("Error", "Could not load image.")
-                return
-            self.loaded_image = image
-            self.process_and_display_image()
+        import platform
+        import os
+        
+        try:
+            # Platform-specific file dialog configuration
+            if platform.system() == "Darwin":  # macOS
+                # macOS-compatible file types
+                filetypes = [
+                    ("Image files", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif"),
+                    ("PNG files", "*.png"),
+                    ("JPEG files", "*.jpg *.jpeg"),
+                    ("BMP files", "*.bmp"),
+                    ("All files", "*")
+                ]
+            else:  # Windows and Linux
+                # Windows/Linux-compatible file types
+                filetypes = [
+                    ("Image files", "*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif"),
+                    ("PNG files", "*.png"),
+                    ("JPEG files", "*.jpg;*.jpeg"),
+                    ("BMP files", "*.bmp"),
+                    ("All files", "*.*")
+                ]
+            
+            file_path = filedialog.askopenfilename(
+                title="Select Image File",
+                filetypes=filetypes,
+                initialdir=os.path.expanduser("~")  # Start in user's home directory
+            )
+            
+            if file_path:
+                # Normalize path for cross-platform compatibility
+                file_path = os.path.normpath(file_path)
+                
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    messagebox.showerror("Error", "Selected file does not exist.")
+                    return
+                
+                # Try to load the image
+                image = cv2.imread(file_path)
+                if image is None:
+                    messagebox.showerror("Error", "Could not load image. Please ensure it's a valid image file.")
+                    return
+                
+                self.loaded_image = image
+                self.process_and_display_image()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error loading image: {str(e)}")
 
     def process_and_display_image(self):
         if self.loaded_image is None:
