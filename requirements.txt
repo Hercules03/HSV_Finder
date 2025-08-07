@@ -1,0 +1,13 @@
+# HSV Range Finder Dependencies
+# Core computer vision and image processing
+opencv-python>=4.5.0
+
+# Image handling and processing
+Pillow>=8.0.0
+numpy>=1.19.0
+
+# Clipboard operations
+pyperclip>=1.8.0
+
+# GUI framework (tkinter is built-in with Python)
+# Note: tkinter comes pre-installed with most Python distributions
