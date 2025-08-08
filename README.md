@@ -7,6 +7,19 @@ A powerful, real-time HSV (Hue, Saturation, Value) color range detection tool fo
 ![Tkinter](https://img.shields.io/badge/GUI-Tkinter-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 📸 Screenshots
+
+<!-- Add screenshots here showing the application in action -->
+
+### Main Interface
+<!-- Screenshot showing the complete application window with loaded image and sliders -->
+
+### HSV Adjustment Process
+<!-- Before/after screenshots showing original image and filtered result -->
+
+### Different View Modes
+<!-- Screenshots showing both filtered image and binary mask views -->
+
 ## 🌟 Features
 
 ### Core Functionality
