@@ -1,7 +1,7 @@
 # Import necessary libraries
 import cv2
 from tkinter import *
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
 import numpy as np
 import pyperclip
@@ -19,7 +19,7 @@ class Config:
     """
     # Update intervals and timing
     UPDATE_INTERVAL = 50  # milliseconds - reduced for better responsiveness
-    DEBOUNCE_DELAY = 150  # milliseconds - debounce rapid changes
+    DEBOUNCE_DELAY = 50  # milliseconds - reduced for better responsiveness
     
     # UI Layout
     WINDOW_SIZE = "910x600"
@@ -108,8 +108,8 @@ class HSVRangeFinder:
         self.u_v: DoubleVar
         
         self._setup_window()
-        self._setup_ui()
         self._initialize_hsv_values()
+        self._setup_ui()
     
     def _setup_window(self) -> None:
         """Configure the main application window."""
@@ -351,7 +351,6 @@ class HSVRangeFinder:
         Raises:
             Various exceptions are caught and displayed to user via messageboxes
         """
-        from tkinter import filedialog
         
         try:
             filetypes = self._get_file_types()
@@ -515,9 +514,9 @@ class HSVRangeFinder:
     def _process_image_safely(self, image: np.ndarray, lower_bound: np.ndarray, upper_bound: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Process image with error handling and caching optimization."""
         try:
-            # Check if we can use cached results
-            if self._can_use_cached_results(lower_bound, upper_bound):
-                return self._cached_processed_images
+            # Check if we can use cached results (disabled for better real-time updates)
+            # if self._can_use_cached_results(lower_bound, upper_bound):
+            #     return self._cached_processed_images
             
             # Use cached HSV conversion if available, otherwise convert
             if self._cached_hsv_image is None or not self._is_same_image(image):
@@ -552,8 +551,15 @@ class HSVRangeFinder:
             return False
         
         cached_lower, cached_upper = self._last_processed_bounds
-        return (np.array_equal(lower_bound, cached_lower) and 
-                np.array_equal(upper_bound, cached_upper))
+        
+        # Convert to integers for exact comparison (HSV values should be integers)
+        lower_int = np.round(lower_bound).astype(int)
+        upper_int = np.round(upper_bound).astype(int)
+        cached_lower_int = np.round(cached_lower).astype(int)
+        cached_upper_int = np.round(cached_upper).astype(int)
+        
+        return (np.array_equal(lower_int, cached_lower_int) and 
+                np.array_equal(upper_int, cached_upper_int))
     
     def _is_same_image(self, image: np.ndarray) -> bool:
         """Check if the current image is the same as the cached one."""
@@ -590,22 +596,40 @@ class HSVRangeFinder:
             print(f"Error displaying images: {str(e)}")
     
     def _get_frame_size(self, frame: Frame, default: Optional[Tuple[int, int]] = None) -> Tuple[int, int]:
-        """Get dynamic frame size with fallback to default."""
+        """Get dynamic frame size with fallback to default and proper scaling."""
         if default is None:
             default = Config.DEFAULT_FRAME_SIZE
             
         try:
+            # Force update to get current dimensions
+            frame.update_idletasks()
             w = frame.winfo_width()
             h = frame.winfo_height()
-            # If not yet rendered, use default
-            if w < 10 or h < 10:
-                w, h = default
+            
+            # If not yet rendered or too small, calculate from window size
+            if w < 50 or h < 50:
+                # Get window dimensions and calculate proportional frame size
+                self.window.update_idletasks()
+                window_w = self.window.winfo_width()
+                window_h = self.window.winfo_height()
+                
+                # Calculate available space for images (accounting for controls)
+                controls_height = 120  # Approximate height of control panel
+                available_h = max(200, window_h - controls_height - 40)  # 40px for padding
+                available_w = max(200, (window_w - 60) // 2)  # Divide by 2 for two frames, 60px total padding
+                
+                w, h = available_w, available_h
+            
+            # Ensure minimum size
+            w = max(200, w - 20)  # Account for frame padding
+            h = max(200, h - 40)  # Account for frame title and padding
+            
             return (w, h)
         except Exception:
             return default
     
     def _display_image_in_label(self, image, label, size, is_bgr=True):
-        """Display a single image in a label with proper conversion."""
+        """Display a single image in a label with proper conversion and aspect ratio preservation."""
         try:
             # Convert color space if needed
             if is_bgr and len(image.shape) == 3:
@@ -615,9 +639,22 @@ class HSVRangeFinder:
             else:
                 display_image = image
             
-            # Convert to PIL and resize
+            # Calculate the best fit size while maintaining aspect ratio
+            original_height, original_width = display_image.shape[:2]
+            target_width, target_height = size
+            
+            # Calculate scaling factors
+            width_scale = target_width / original_width
+            height_scale = target_height / original_height
+            scale = min(width_scale, height_scale)  # Use smaller scale to fit within bounds
+            
+            # Calculate new dimensions
+            new_width = int(original_width * scale)
+            new_height = int(original_height * scale)
+            
+            # Convert to PIL and resize with aspect ratio preservation
             pil_image = Image.fromarray(display_image)
-            pil_image = pil_image.resize(size, Image.Resampling.LANCZOS)
+            pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             
             # Convert to PhotoImage and display
             photo_image = ImageTk.PhotoImage(image=pil_image)
@@ -680,6 +717,9 @@ class HSVRangeFinder:
         entry_widget.delete(0, END)
         entry_widget.insert(0, str(value))
         self._mark_hsv_changed()
+        # Process immediately for slider changes to improve responsiveness
+        if self.loaded_image is not None:
+            self.process_and_display_image()
     
     # Lower HSV handlers
     def lh_entry_changed(self, event):
@@ -765,8 +805,20 @@ class HSVRangeFinder:
         # Bind the cleanup method to the window's close event
         self.window.protocol("WM_DELETE_WINDOW", self.cleanup)
         
+        # Bind window resize event for dynamic image scaling
+        self.window.bind('<Configure>', self._on_window_resize)
+        
         # Run the Tkinter event loop
         self.window.mainloop()
+
+    def _on_window_resize(self, event):
+        """Handle window resize events to update image display dynamically."""
+        # Only process resize events for the main window, not child widgets
+        if event.widget == self.window and self.loaded_image is not None:
+            # Add a small delay to avoid excessive updates during dragging
+            if hasattr(self, '_resize_timer') and self._resize_timer:
+                self.window.after_cancel(self._resize_timer)
+            self._resize_timer = self.window.after(100, self.process_and_display_image)
 
     def toggle_result_view(self):
         self.show_binary = not self.show_binary

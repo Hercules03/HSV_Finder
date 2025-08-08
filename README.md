@@ -9,16 +9,16 @@ A powerful, real-time HSV (Hue, Saturation, Value) color range detection tool fo
 
 ## 📸 Screenshots
 
-<!-- Add screenshots here showing the application in action -->
+<img src="./screenshots/screenshot.png" alt="Main screen screenshot">
 
 ### Main Interface
-<!-- Screenshot showing the complete application window with loaded image and sliders -->
+<img src="./screenshots/main-screen.png" alt="Main interface screenshot">
 
 ### HSV Adjustment Process
-<!-- Before/after screenshots showing original image and filtered result -->
+<img src="./screenshots/adjustment.png" alt="Adjusting screenshot">
 
 ### Different View Modes
-<!-- Screenshots showing both filtered image and binary mask views -->
+<img src="./screenshots/binary-mask.png" alt="Binary mask screenshot">
 
 ## 🌟 Features
 
